@@ -8,14 +8,14 @@
     "email": "vinay.vemparala@tagntrac.com"
   },
   "engines": {
-    "node": "18.12.1"
+    "node": "20.18.0"
   },
   "private": true,
   "scripts": {
     "build": "rimraf -d dist && tsc",
     "prettier": "prettier --write 'src/**/**.ts'",
     "lint": "eslint src",
-    "start:dev": "npm run build; tsc -w & nodemon -r dotenv/config -q -w dist dist/index.js",
+    "start:dev": "rimraf -d dist && tsc && nodemon -r dotenv/config -q -w dist dist/index.js",
     "start": "node -r dotenv/config -q -w dist dist/index.js"
   },
   "dependencies": {
