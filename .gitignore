@@ -128,3 +128,7 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Service account JSON files
+ai-use-cases-431720-3a078e52f84d.json
+ai-use-cases-431720-24bf617343c8.json
