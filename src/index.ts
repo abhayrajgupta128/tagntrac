@@ -6,11 +6,14 @@ import { createServer } from 'http';
 import * as httpContext from 'express-http-context';
 
 import { correlationID, loggerMiddleware } from './middlewares';
-import { BaseRouter } from './routes';
+import service from './services';
+import { BaseRouter, QuestionRouter } from './routes';
 import { logStream } from './utilities/logger';
 
 async function startServer() {
   const app = express();
+
+  await service({ app });
 
   /**
    * Handle JSON in request body
@@ -48,7 +51,7 @@ async function startServer() {
   /**
    * Mount Routes
    */
-  app.use('/v1', [BaseRouter]);
+  app.use('/v1', [BaseRouter, QuestionRouter]);
 
   /**
    * Internal Error Response (This should be defined after all routes are defined)
