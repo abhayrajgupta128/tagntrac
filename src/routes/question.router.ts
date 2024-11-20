@@ -3,6 +3,6 @@ import { QuestionController } from '../controllers';
 
 const router = Router();
 
-router.post('/ask', QuestionController.answerQuestion);
+router.get('/ask', QuestionController.answerQuestion);
 
 export default router;

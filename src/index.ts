@@ -33,7 +33,7 @@ async function startServer() {
   /**
    * Configure Morgan for Logging
    */
-  app.use(httpContext.middleware);
+  // app.use(httpContext.middleware);
   app.use(correlationID);
   app.use(loggerMiddleware);
 
@@ -43,7 +43,7 @@ async function startServer() {
 
   app.use(
     morgan(
-      '[:correlationID] - :method :url HTTP/:http-version :status :res[content-length] :response-time :total-time',
+      '[:correlationID] - :method :url HTTP/:http-version :status :res[content-length] :response-time ms',
       { stream: logStream },
     ),
   );
@@ -56,7 +56,7 @@ async function startServer() {
   /**
    * Internal Error Response (This should be defined after all routes are defined)
    */
-  app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
+  app.use((err: Error, _req: Request, res: Response, next: NextFunction): any => {
     if (!err) {
       return next();
     }

@@ -1,6 +1,7 @@
 import { Request, Response, Application } from 'express';
 // import { init, GenerativeModel } from '@google-cloud/aiplatform'; // TODO
 import dotenv from 'dotenv';
+import { BigQuery } from '@google-cloud/bigquery';
 import { buildPrompt } from '../utilities/promptBuilder';
 import { buildSqlQuery } from '../utilities/sqlBuilder';
 import * as Utils from '../utilities/queryTypeDetector';
@@ -11,12 +12,14 @@ dotenv.config();
 // const PROJECT_ID = process.env.PROJECT_ID;
 // const LOCATION = process.env.LOCATION;
 
-export const answerQuestion = async (app: Application, req: Request, res: Response): Promise<void> => {
-    const { question } = req.body;
+export const answerQuestion = async (req: Request, res: Response): Promise<void> => {
+    let { question } = req.body;
+    
     try {
-        const data = await runSearch(app, question);  // TODO: data from bigquery
+        const bigquery = req.app.bigQuerry;
+        const data = await runSearch(bigquery, question);  // TODO: data from bigquery
         if (!data) {
-            res.status(204).json({ answer: defaultChatbotResponse() });
+            res.status(202).json({ answer: "I'm sorry, I couldn't find any relevant information for your query."});
             return;
         }
         const prompt = buildPrompt(data, question);
@@ -25,11 +28,11 @@ export const answerQuestion = async (app: Application, req: Request, res: Respon
         res.status(200).json({ answer: cleanOutput(answer) });
 
     } catch (error: any) {
-        res.status(404).json({ answer: `Error processing question: ${error.message}` });
+        res.status(404).json({ answer: `Error processing question: ${error?.message}`});
     }
 };
 
-const runSearch = async (app: Application, question: string): Promise<string | null> => {
+const runSearch = async ( bigquery: BigQuery, question: string) => {
     let shipment_id: string | null;
     try {
         if (Utils.isLocationQuery(question) ||
@@ -40,26 +43,22 @@ const runSearch = async (app: Application, question: string): Promise<string | n
             shipment_id = UtilHelper.getShipmentIdFromQuery(question);
         } else shipment_id = null;
 
-        const { time_period, days } = UtilHelper.getTimePeriodFromQuery(question);  // review from helper.ts (missing in previous)
+        const { time_period, days } = UtilHelper.getTimePeriodFromQuery(question);
+        console.log("Time period: ", time_period, days);
+        
 
         // Initialize query parameters
 
-        // const qp = BigQuery.valueToQueryParameter_({ name: 'question', parameterType: 'STRING', parameterValue: question });
-        const bigQuerry = app.bigQuerry;
-        const [rowsss] = await bigQuerry.query('SELECT * FROM `your_dataset.your_table` LIMIT 10');
+        console.log("------------1--------");
+        const [demo] = await bigquery.query('SELECT * AS record_count FROM `tenant` LIMIT 10');
+        console.log("------------2--------");
+        console.log("Rishav here", demo);
         
-        let queryParams = [  // TODO (get the bigquery parameters : get docs)
+        
+        // const qp = BigQuery.valueToQueryParameter_({ name: 'question', parameterType: 'STRING', parameterValue: question });
+        let queryParams = [
             { name: 'question', parameterType: 'STRING', parameterValue: question }
         ];
-
-        /** PYTHON REFERENCE
-
-        # Initialize query parameters
-        query_params = [
-            bigquery.ScalarQueryParameter("question", "STRING", question)
-        ]
-
-        */
 
         if (shipment_id) {
             queryParams.push({ name: 'shipment_id', parameterType: 'STRING', parameterValue: shipment_id });
@@ -71,35 +70,33 @@ const runSearch = async (app: Application, question: string): Promise<string | n
             query: sql,
             params: queryParams
         };
-        const [rows] = await bigQuerry.query(options);
-        console.log(rows);
-        
+        const [rows] = await bigquery.query(options);
 
         // Initialize data collectors
         let data = '';
-        const route_summary = {
+        let route_summary = {
             total_shipments: 0,
             on_time_count: 0,
             temperature_issues: 0,
             locations: new Set<string>()
         };
 
-        const route_excursions: Record<string, any> = {};
+        let route_excursions: Record<string, any> = {};
 
-        const sensor_issues = {
+        let sensor_issues = {
             total_interruptions: 0,
             affected_shipments: new Set<string>(),
             long_downtime_shipments: [] as { shipment_id: string; downtime: number }[]
         };
 
-        const delay_trends = {
+        let delay_trends = {
             total_shipments: 0,
             delayed_shipments: 0,
             avg_delay_hours: 0,
             reasons: {} as Record<string, number>
         };
 
-        const detailed_data = {
+        let detailed_data = {
             temperature_readings: [] as { temp: number; time: string }[],
             location_updates: [] as { location: string; time: string }[],
             timestamps: [] as string[]
@@ -178,17 +175,20 @@ const runSearch = async (app: Application, question: string): Promise<string | n
 
 const answerQuestionGemini = async (prompt: string): Promise<string> => {  //TODO
     try {
-        const model = new GenerativeModel('gemini-pro');  // TODO (get the model for Nodejs)
-        const response = await model.generateContent({   // TODO: implement this ftn
-            prompt,
-            generationConfig: {
-                maxOutputTokens: 4096,
-                temperature: 0.3,
-                topP: 0.9,
-                topK: 20,
-            },
-            stream: false,
-        });
+        // const model = new GenerativeModel('gemini-pro');  // TODO (get the model for Nodejs)
+        // const response = await model.generateContent({   // TODO: implement this ftn
+        //     prompt,
+        //     generationConfig: {
+        //         maxOutputTokens: 4096,
+        //         temperature: 0.3,
+        //         topP: 0.9,
+        //         topK: 20,
+        //     },
+        //     stream: false,
+        // });
+        const response = {
+            text: 'Response made by Rishav from Gemini model.'
+        }
         return response.text;
     } catch (error: any) {
         return `Error in Gemini model: ${error.message}`;
@@ -199,6 +199,6 @@ const cleanOutput = (text: string): string => {
     return text.replace(/[^\w\s.,:]/g, '');
 };
 
-const defaultChatbotResponse = (): string => {
-    return "I'm sorry, I couldn't find any relevant information for your query.";
-};
+// const defaultChatbotResponse = (): string => {
+//     return "I'm sorry, I couldn't find any relevant information for your query.";
+// };
