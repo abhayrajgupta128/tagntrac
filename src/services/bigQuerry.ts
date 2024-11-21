@@ -12,7 +12,7 @@ const bigQuerryService = async ({ app }: { app: any }) => {
       projectId: bigQuerryConfig.project_id,
     });
 
-    console.log('BigQuery service initialized successfully.');
+    console.log('📀 BigQuery service initialized...');
   } catch (error) {
     console.error('Error initializing BigQuery service:', error);
   }

@@ -1,7 +1,7 @@
-import { Request, Response, Application } from 'express';
-// import { init, GenerativeModel } from '@google-cloud/aiplatform'; // TODO
+import { Request, Response } from 'express';
+import { VertexAI } from '@google-cloud/vertexai'
 import dotenv from 'dotenv';
-import { BigQuery } from '@google-cloud/bigquery';
+import { BigQuery, QueryParameter } from '@google-cloud/bigquery';
 import { buildPrompt } from '../utilities/promptBuilder';
 import { buildSqlQuery } from '../utilities/sqlBuilder';
 import * as Utils from '../utilities/queryTypeDetector';
@@ -9,55 +9,76 @@ import * as UtilHelper from '../utilities/helper';
 
 dotenv.config();
 
-// const PROJECT_ID = process.env.PROJECT_ID;
-// const LOCATION = process.env.LOCATION;
-
 export const answerQuestion = async (req: Request, res: Response): Promise<void> => {
     let { question } = req.body;
-    
+
     try {
         const bigquery = req.app.bigQuerry;
-        const data = await runSearch(bigquery, question);  // TODO: data from bigquery
+        const genAI = req.app.generativeModel;
+        const data = await runSearch(bigquery, question);
+
         if (!data) {
-            res.status(202).json({ answer: "I'm sorry, I couldn't find any relevant information for your query."});
+            res.status(202).json({ answer: "I'm sorry, I couldn't find any relevant information for your query." });
             return;
         }
         const prompt = buildPrompt(data, question);
 
-        const answer = await answerQuestionGemini(prompt);  // TODO : data from gemini
+        const answer = await answerQuestionGemini(genAI, prompt);
+        console.log('Answer: ', answer);
+
         res.status(200).json({ answer: cleanOutput(answer) });
 
     } catch (error: any) {
-        res.status(404).json({ answer: `Error processing question: ${error?.message}`});
+        res.status(404).json({ answer: `Error processing question: ${error?.message}` });
     }
 };
 
-const runSearch = async ( bigquery: BigQuery, question: string) => {
+const runSearch = async (bigquery: BigQuery, question: string) => {
     let shipment_id: string | null;
     try {
         if (Utils.isLocationQuery(question) ||
             Utils.isDetailsQuery(question) ||
             Utils.isEtaQuery(question) ||
             Utils.isDetailedDataReportQuery(question)
-        ){
+        ) {
             shipment_id = UtilHelper.getShipmentIdFromQuery(question);
         } else shipment_id = null;
 
         const { time_period, days } = UtilHelper.getTimePeriodFromQuery(question);
         console.log("Time period: ", time_period, days);
-        
-
-        // Initialize query parameters
 
         console.log("------------1--------");
-        const [demo] = await bigquery.query('SELECT * AS record_count FROM `tenant` LIMIT 10');
+        const demoQuery = `
+            WITH query_embedding AS (
+            SELECT text_embedding AS query_embedding
+            FROM ML.GENERATE_TEXT_EMBEDDING(
+            MODEL \`ai-use-cases-431720.tnt2_dataset.embedding_model\`,
+            (SELECT @question AS content)
+            )
+        )
+        SELECT 
+            base.shipment_id,
+            base.shipment_source,
+            base.shipment_destination,
+            base.shipment_status,
+            (SELECT 
+            SUM(e1 * e2) / SQRT(SUM(e1 * e1) * SUM(e2 * e2))
+            FROM UNNEST(base.text_embedding) e1
+            JOIN UNNEST(query_embedding.query_embedding) e2
+            ON e1 = e2) AS similarity
+        FROM \`ai-use-cases-431720.tnt2_dataset.bqdoc_with_embeddings\` base
+        CROSS JOIN query_embedding
+        LIMIT 5;
+        `;
+        const [demo] = await bigquery.query({
+            query: demoQuery,
+        });
         console.log("------------2--------");
-        console.log("Rishav here", demo);
-        
-        
-        // const qp = BigQuery.valueToQueryParameter_({ name: 'question', parameterType: 'STRING', parameterValue: question });
+        console.log("Rishav's demo here", demo);
+
+        // Initialize query parameters
         let queryParams = [
-            { name: 'question', parameterType: 'STRING', parameterValue: question }
+            // { name: 'question', parameterType:'STRING', parameterValue: question }
         ];
 
         if (shipment_id) {
@@ -65,15 +86,15 @@ const runSearch = async ( bigquery: BigQuery, question: string) => {
         }
 
         // Execute query
-        const sql = buildSqlQuery(question);
+        const sqlQuerry = buildSqlQuery(question);
         const options = {
-            query: sql,
+            query: sqlQuerry,
             params: queryParams
         };
         const [rows] = await bigquery.query(options);
 
         // Initialize data collectors
-        let data = '';
+        let dataCollector: string[] = [];
         let route_summary = {
             total_shipments: 0,
             on_time_count: 0,
@@ -105,15 +126,17 @@ const runSearch = async ( bigquery: BigQuery, question: string) => {
         // Process results based on query type
         for (const row of rows) {
             if (Utils.isRouteSummaryQuery(question)) {
-                route_summary.total_shipments += 1;
+                route_summary.total_shipments++;
                 if (row.actual_delivery_time <= row.planned_delivery_time) {
-                    route_summary.on_time_count += 1;
+                    route_summary.on_time_count++;
                 }
                 if (UtilHelper.checkTemperatureExcursion(row.temperature)[0]) {
-                    route_summary.temperature_issues += 1;
+                    route_summary.temperature_issues++;
                 }
-                route_summary.locations.add(row.shipment_source);
-                route_summary.locations.add(row.shipment_destination);
+                // Add locations
+                [row.shipment_source, row.shipment_destination].forEach(location =>
+                    route_summary.locations.add(location)
+                );
 
             } else if (Utils.isRouteExcursionAnalysisQuery(question)) {
                 const route_key = `${row.shipment_source} to ${row.shipment_destination}`;
@@ -128,7 +151,7 @@ const runSearch = async ( bigquery: BigQuery, question: string) => {
             } else if (Utils.isSensorBreakdownQuery(question)) {
                 sensor_issues.total_interruptions += row.interruption_count;
                 sensor_issues.affected_shipments.add(row.shipment_id);
-                if (row.max_gap_duration > 120) {  // 2 hours
+                if (row.max_gap_duration > 120) { // 2 hours
                     sensor_issues.long_downtime_shipments.push({
                         shipment_id: row.shipment_id,
                         downtime: row.max_gap_duration
@@ -139,11 +162,7 @@ const runSearch = async ( bigquery: BigQuery, question: string) => {
                 delay_trends.total_shipments = row.total_shipments;
                 delay_trends.delayed_shipments = row.delayed_shipments;
                 delay_trends.avg_delay_hours = row.avg_delay_hours;
-                for (const reason of row.delay_reasons.split(', ')) {
-                    if (reason) {
-                        delay_trends.reasons[reason] = (delay_trends.reasons[reason] || 0) + 1;
-                    }
-                }
+                parseDelayReasons(row.delay_reasons, delay_trends.reasons);
 
             } else if (Utils.isDetailedDataReportQuery(question)) {
                 if (row.temperature) {
@@ -163,35 +182,32 @@ const runSearch = async ( bigquery: BigQuery, question: string) => {
                 }
             }
 
-            // Add raw data to string
-            data += Object.entries(row).map(([k, v]) => `${k}: ${v}`).join('\n') + '\n';
+            // Add raw data to data collector
+            dataCollector.push(
+                Object.entries(row)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join('\n')
+            );
         }
 
-        return data.trim() !== '' ? data : null;
+        // Join all collected raw data
+        const data = dataCollector.join('\n');
+        return data;
     } catch (error: any) {
-        return null;
+        console.log('Error in BigQuery: ', error.message);
+        return error.message;
     }
-};
+}
 
-const answerQuestionGemini = async (prompt: string): Promise<string> => {  //TODO
+const answerQuestionGemini = async (genAI: ReturnType<VertexAI['getGenerativeModel']>, prompt: string): Promise<string> => {
     try {
-        // const model = new GenerativeModel('gemini-pro');  // TODO (get the model for Nodejs)
-        // const response = await model.generateContent({   // TODO: implement this ftn
-        //     prompt,
-        //     generationConfig: {
-        //         maxOutputTokens: 4096,
-        //         temperature: 0.3,
-        //         topP: 0.9,
-        //         topK: 20,
-        //     },
-        //     stream: false,
-        // });
-        const response = {
-            text: 'Response made by Rishav from Gemini model.'
-        }
-        return response.text;
+        const result = await genAI.generateContent(prompt);
+        let response = JSON.stringify(result.response);
+
+        console.log('Response: ', response);
+        return response;
     } catch (error: any) {
-        return `Error in Gemini model: ${error.message}`;
+        return `Error in GenerativeAI model: ${error.message}`;
     }
 };
 
@@ -199,6 +215,11 @@ const cleanOutput = (text: string): string => {
     return text.replace(/[^\w\s.,:]/g, '');
 };
 
-// const defaultChatbotResponse = (): string => {
-//     return "I'm sorry, I couldn't find any relevant information for your query.";
-// };
+
+const parseDelayReasons = (reasonsString: string, reasonsMap: Record<string, number>) => {
+    for (const reason of reasonsString.split(', ')) {
+        if (reason) {
+            reasonsMap[reason] = (reasonsMap[reason] || 0) + 1;
+        }
+    }
+};

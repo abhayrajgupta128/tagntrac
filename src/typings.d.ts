@@ -3,9 +3,10 @@ declare namespace Express {
     correlationID: string;
     logger: winston.Logger;
   }
-
+  
   export interface Application {
     bigQuerry: BigQuery;
+    generativeModel: ReturnType<VertexAI['getGenerativeModel']>;
   }
 }
 
