@@ -1,21 +1,14 @@
 // Import required libraries
 import { Request, Response } from 'express';
-import { BigQuery } from '@google-cloud/bigquery';
-import path from 'path';
-
-const keyFilePath = path.resolve(__dirname, '../../ai-use-cases-431720-3a078e52f84d.json');
-
-// Create a BigQuery client
-const bigquery = new BigQuery({
-  keyFilename: keyFilePath,
-});
+import { RowData, TMData } from '../typings';
 
 // Define the function to handle the request
 export const getDashboardDataFromBigQuery = async (req: Request, res: Response) => {
+  const bigquery = req.app.bigQuerry;
   try {
     // Validate and parse query parameters
     const organizationId = req.params.tenantId as string;
-    const platformType = Math.max(1, Math.min(Number(req.params.type) || 1, 2));
+    const platformType = Math.max(1, Math.min(Number(req.query.type) || 1, 2));
 
     if (!organizationId) {
       res.status(400).send({
@@ -155,7 +148,6 @@ export const getDashboardDataFromBigQuery = async (req: Request, res: Response) 
     };
 
     const [rows] = await bigquery.query(options);
-    console.log('Query result:', rows);
 
     if (rows.length === 0) {
       res.status(404).send({ error: 'No data found for this organizationId' });
@@ -183,13 +175,12 @@ export const getDashboardDataFromBigQuery = async (req: Request, res: Response) 
     };
 
     const [tmRows] = await bigquery.query(tmOptions);
-
-    const result = rows.map((row) => ({
-      ...row,
-      tm_data: tmRows.map((tmRow) => ({
-        tm: tmRow.tm,
-        timestamp: tmRow.timestamp,
-      })),
+    const result = rows.map((row: RowData) => ({
+        ...row,
+        tm_data: tmRows.map((tmRow: TMData) => ({
+            tm: tmRow.tm,
+            timestamp: tmRow.timestamp,
+        })),
     }));
 
     res.status(200).json(result);

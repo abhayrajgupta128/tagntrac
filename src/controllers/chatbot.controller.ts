@@ -203,7 +203,7 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
 const answerQuestionGemini = async (genAI: ReturnType<VertexAI['getGenerativeModel']>, prompt: string): Promise<string> => {
     try {
         const result = await genAI.generateContent(prompt);
-        let response = JSON.stringify(result.response);
+        const response = JSON.stringify(result.response);
 
         return response;
     } catch (error: any) {
