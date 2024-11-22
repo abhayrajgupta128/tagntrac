@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 
 export const authenticateApiKey = async (req: Request, res: Response, next: NextFunction) => {
   const apiKey = req.headers["x-api-key"];
-  console.log(apiKey);
 
   if (!apiKey) {
     console.error("No API key found in the request");

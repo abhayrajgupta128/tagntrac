@@ -1,8 +1,9 @@
 import { BigQuery } from '@google-cloud/bigquery';
+import { Application } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const bigQuerryService = async ({ app }: { app: any }) => {
+const bigQuerryService = async ({ app }: { app: Application }) => {
   try {
     const credentialsPath = path.resolve(__dirname, `${process.env.PATH_TO_CREDENTIALS}`);
     const bigQuerryConfig = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));

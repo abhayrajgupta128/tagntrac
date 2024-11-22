@@ -66,3 +66,18 @@ export const classifyExcursionSeverity = (deviation: any): string => {
         return "unknown";
     }
 };
+
+export const cleanOutput = (text: string): string => {
+    return text
+        .replace(/\s*\n\s*/g, ' ') // Replace newlines and surrounding spaces with a single space
+        .replace(/\s{2,}/g, ' ')  // Replace multiple spaces with a single space
+        .trim();                  // Trim leading and trailing spaces
+};
+
+export const parseDelayReasons = (reasonsString: string, reasonsMap: Record<string, number>) => {
+    for (const reason of reasonsString.split(', ')) {
+        if (reason) {
+            reasonsMap[reason] = (reasonsMap[reason] || 0) + 1;
+        }
+    }
+};

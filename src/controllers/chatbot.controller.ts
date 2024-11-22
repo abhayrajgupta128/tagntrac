@@ -9,15 +9,13 @@ import * as UtilHelper from '../utilities/helper';
 
 dotenv.config();
 
-export const answerQuestion = async (req: Request, res: Response): Promise<void> => {
+export const answerQuestion = async (req: Request, res: Response) => {
     let { question } = req.body;
 
     try {
         const bigquery = req.app.bigQuerry;
         const genAI = req.app.generativeModel;
         const data = await runSearch(bigquery, question);
-        console.log("runSearch Data :", data);
-        
 
         if (!data) {
             res.status(202).json({ answer: "I'm sorry, I couldn't find any relevant information for your query." });
@@ -26,9 +24,8 @@ export const answerQuestion = async (req: Request, res: Response): Promise<void>
         const prompt = buildPrompt(data, question);
 
         const answer = await answerQuestionGemini(genAI, prompt);
-        console.log('GeminiAnswer: ', answer);
 
-        res.status(200).json({ answer: cleanOutput(answer) });
+        res.status(200).json({ answer: JSON.parse(answer) });
 
     } catch (error: any) {
         res.status(404).json({ answer: `Error processing question: ${error?.message}` });
@@ -49,49 +46,45 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
         const { time_period, days } = UtilHelper.getTimePeriodFromQuery(question);
         console.log("Time period: ", time_period, days);
 
-        console.log("------------demo : 1--------");
-        const demoQuery = `
-            WITH query_embedding AS (
-            SELECT text_embedding AS query_embedding
-            FROM ML.GENERATE_TEXT_EMBEDDING(
-            MODEL \`ai-use-cases-431720.tnt2_dataset.embedding_model\`,
-            (SELECT @question AS content)
-            )
-        )
-        SELECT 
-            base.shipment_id,
-            base.shipment_source,
-            base.shipment_destination,
-            base.shipment_status,
-            (SELECT 
-            SUM(e1 * e2) / SQRT(SUM(e1 * e1) * SUM(e2 * e2))
-            FROM UNNEST(base.text_embedding) e1
-            JOIN UNNEST(query_embedding.query_embedding) e2
-            ON e1 = e2) AS similarity
-        FROM \`ai-use-cases-431720.tnt2_dataset.bqdoc_with_embeddings\` base
-        CROSS JOIN query_embedding
-        LIMIT 5;
-        `;
-        const [demo] = await bigquery.query(demoQuery);
-        console.log("------------2--------");
-        console.log("Rishav's demo here", demo);
-
         // Initialize query parameters
-        let queryParams = [
-            { name: 'question', parameterType:'STRING', parameterValue: question }
+        // let queryParams = [
+        //     { name: 'question', parameterType: 'STRING', parameterValue: question }
+        // ];
+        // console.log("shipment_id: ", shipment_id);
+
+        // if (shipment_id) {
+        //     queryParams.push({ name: 'shipment_id', parameterType: 'STRING', parameterValue: shipment_id });
+        // }
+
+        // // Execute query
+        // const sqlQuery = buildSqlQuery(question);
+        // const options = {
+        //     query: sqlQuery,
+        //     params: queryParams,
+        //     types: {
+        //         question: 'STRING',
+        //         shipment_id: 'STRING'
+        //     }
+        // };
+
+        // const [rows] = await bigquery.query(options);
+        // console.log("❤️😂Rows yessssssssss: ", rows);
+        const queryParams = [
+            { name: 'question', parameterType: { type: 'STRING' }, parameterValue: { value: question }}
         ];
 
         if (shipment_id) {
-            queryParams.push({ name: 'shipment_id', parameterType: 'STRING', parameterValue: shipment_id });
+            queryParams.push({ name: 'shipment_id', parameterType: { type: 'STRING' }, parameterValue: { value: shipment_id }
+            });
         }
-
-        // Execute query
-        const sqlQuerry = buildSqlQuery(question);
+        const sqlQuery = buildSqlQuery(question);
         const options = {
-            query: sqlQuerry,
+            query: sqlQuery,
             params: queryParams
         };
         const [rows] = await bigquery.query(options);
+        console.log("❤️😂Rows yessssssssss: ", rows);
+        
 
         // Initialize data collectors
         let dataCollector: string[] = [];
@@ -162,7 +155,7 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
                 delay_trends.total_shipments = row.total_shipments;
                 delay_trends.delayed_shipments = row.delayed_shipments;
                 delay_trends.avg_delay_hours = row.avg_delay_hours;
-                parseDelayReasons(row.delay_reasons, delay_trends.reasons);
+                UtilHelper.parseDelayReasons(row.delay_reasons, delay_trends.reasons);
 
             } else if (Utils.isDetailedDataReportQuery(question)) {
                 if (row.temperature) {
@@ -192,9 +185,17 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
 
         // Join all collected raw data
         const data = dataCollector.join('\n');
+        console.log("------------------ runSearch Data : start--------------------------");
+        console.log("Data in  runSearch ftn last: ", data);
+        console.log("------------------ runSearch Data : end----------------------------");
+
         return data;
+
     } catch (error: any) {
+        console.log("------------------ runSearch Error : start--------------------------");
         console.log('Error in BigQuery: ', error.message);
+        console.log("------------------ runSearch Error : end----------------------------");
+
         return error.message;
     }
 }
@@ -204,29 +205,9 @@ const answerQuestionGemini = async (genAI: ReturnType<VertexAI['getGenerativeMod
         const result = await genAI.generateContent(prompt);
         let response = JSON.stringify(result.response);
 
-        console.log('Response: ', response);
         return response;
     } catch (error: any) {
         return `Error in GenerativeAI model: ${error.message}`;
     }
 };
 
-// const cleanOutput = (text: string): string => {
-//     return text.replace(/[^\w\s.,:]/g, '');
-// };
-
-const cleanOutput = (text: string): string => {
-    return text
-        .replace(/\s*\n\s*/g, ' ') // Replace newlines and surrounding spaces with a single space
-        .replace(/\s{2,}/g, ' ')  // Replace multiple spaces with a single space
-        .trim();                  // Trim leading and trailing spaces
-};
-
-
-const parseDelayReasons = (reasonsString: string, reasonsMap: Record<string, number>) => {
-    for (const reason of reasonsString.split(', ')) {
-        if (reason) {
-            reasonsMap[reason] = (reasonsMap[reason] || 0) + 1;
-        }
-    }
-};

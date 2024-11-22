@@ -2,7 +2,7 @@ import * as Utils from '../utilities/queryTypeDetector';
 
 
 export const buildSqlQuery = (question: string): string => {
-    let sql = '';
+    let sql: string;
 
     if (Utils.isRouteSummaryQuery(question)) {
         sql = `
