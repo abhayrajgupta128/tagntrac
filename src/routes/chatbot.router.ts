@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { QuestionController } from '../controllers';
+import { ChatBotController } from '../controllers';
 import { AuthMiddleware } from '../middlewares';
 
 const chatRouter = Router();
 
 chatRouter.use('/tenant', AuthMiddleware.authenticateApiKey);
-chatRouter.get('/tenant/:tenantId/ask', QuestionController.answerQuestion);
+chatRouter.get('/tenant/:tenantId/ask', ChatBotController.answerQuestion);
 
 export default chatRouter;
