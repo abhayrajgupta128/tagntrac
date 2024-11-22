@@ -11,11 +11,11 @@ const bigquery = new BigQuery({
 });
 
 // Define the function to handle the request
-export const getDataFromBigQuery = async (req: Request, res: Response) => {
+export const getDashboardDataFromBigQuery = async (req: Request, res: Response) => {
   try {
     // Validate and parse query parameters
-    const organizationId = req.query.orgId as string;
-    const platformType = Math.max(1, Math.min(Number(req.query.type) || 1, 2));
+    const organizationId = req.params.tenantId as string;
+    const platformType = Math.max(1, Math.min(Number(req.params.type) || 1, 2));
 
     if (!organizationId) {
       res.status(400).send({

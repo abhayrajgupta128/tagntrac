@@ -4,11 +4,11 @@ import { AuthMiddleware } from '../middlewares';
 
 const deviceRouter = Router();
 
-deviceRouter.use('/devices', AuthMiddleware.authenticateApiKey);
+deviceRouter.use('/tenant', AuthMiddleware.authenticateApiKey);
 
 deviceRouter.get(
-  "/devices/:deviceId/data",
-  DataController.getDataFromBigQuery
+  "/tenant/:tenantId/dashboard",
+  DataController.getDashboardDataFromBigQuery
 );
 
 export default deviceRouter;

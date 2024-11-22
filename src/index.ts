@@ -7,7 +7,7 @@ import * as httpContext from 'express-http-context';
 
 import { correlationID, loggerMiddleware } from './middlewares';
 import service from './services';
-import { BaseRouter, QuestionRouter, DataRouter } from './routes';
+import { BaseRouter, ChatBotRouter, DataRouter } from './routes';
 import { logStream } from './utilities/logger';
 import dotenv from 'dotenv';
 
@@ -54,7 +54,7 @@ async function startServer() {
   /**
    * Mount Routes
    */
-  app.use('/v1', [BaseRouter, QuestionRouter, DataRouter]);
+  app.use('/v1', [BaseRouter, ChatBotRouter, DataRouter]);
 
   /**
    * Internal Error Response (This should be defined after all routes are defined)
