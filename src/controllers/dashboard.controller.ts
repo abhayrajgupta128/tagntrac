@@ -25,7 +25,7 @@ export const getDashboardDataFromBigQuery = async (req: Request, res: Response) 
                     tenant.id as tenant_id,
                     tenant.name as tenant_name,
                     shipment.id as shipment_id,
-                    shipment.shipment_identifier 55as shipment_name,
+                    shipment.shipment_identifier as shipment_name,
                     shipment.status as shipment_status,
                     shipment.transit_start_time as shipment_start_time,
                     shipment.transit_end_time as shipment_end_time,
@@ -148,7 +148,6 @@ export const getDashboardDataFromBigQuery = async (req: Request, res: Response) 
     };
 
     const [rows] = await bigquery.query(options);
-    console.log('Query result:', rows);
 
     if (rows.length === 0) {
       res.status(404).send({ error: 'No data found for this organizationId' });

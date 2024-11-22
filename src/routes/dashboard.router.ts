@@ -1,14 +1,11 @@
 import {Router} from 'express';
 import { DashboardController } from '../controllers';
-import { AuthMiddleware } from '../middlewares';
 
-const dashBoardRouter = Router();
+const dashboardRouter = Router();
 
-dashBoardRouter.use('/devices', AuthMiddleware.authenticateApiKey);
-
-dashBoardRouter.get(
+dashboardRouter.get(
   "/tenant/:tenantId/dashboard",
-  DashboardController.getDataFromBigQuery
+  DashboardController.getDashboardDataFromBigQuery
 );
 
-export default dashBoardRouter;
+export default dashboardRouter;
