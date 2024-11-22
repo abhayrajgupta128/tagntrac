@@ -16,3 +16,4 @@ function loggerMiddleware(req: Request, _res: Response, next: NextFunction) {
 }
 
 export { correlationID, loggerMiddleware };
+export * as AuthMiddleware from "./auth.middleware";
