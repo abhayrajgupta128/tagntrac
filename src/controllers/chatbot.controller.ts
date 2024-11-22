@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { VertexAI } from '@google-cloud/vertexai'
 import dotenv from 'dotenv';
-import { BigQuery, QueryParameter } from '@google-cloud/bigquery';
+import { BigQuery } from '@google-cloud/bigquery';
 import { buildPrompt } from '../utilities/promptBuilder';
 import { buildSqlQuery } from '../utilities/sqlBuilder';
 import * as Utils from '../utilities/queryTypeDetector';
@@ -16,6 +16,8 @@ export const answerQuestion = async (req: Request, res: Response): Promise<void>
         const bigquery = req.app.bigQuerry;
         const genAI = req.app.generativeModel;
         const data = await runSearch(bigquery, question);
+        console.log("runSearch Data :", data);
+        
 
         if (!data) {
             res.status(202).json({ answer: "I'm sorry, I couldn't find any relevant information for your query." });
@@ -24,7 +26,7 @@ export const answerQuestion = async (req: Request, res: Response): Promise<void>
         const prompt = buildPrompt(data, question);
 
         const answer = await answerQuestionGemini(genAI, prompt);
-        console.log('Answer: ', answer);
+        console.log('GeminiAnswer: ', answer);
 
         res.status(200).json({ answer: cleanOutput(answer) });
 
@@ -47,7 +49,7 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
         const { time_period, days } = UtilHelper.getTimePeriodFromQuery(question);
         console.log("Time period: ", time_period, days);
 
-        console.log("------------1--------");
+        console.log("------------demo : 1--------");
         const demoQuery = `
             WITH query_embedding AS (
             SELECT text_embedding AS query_embedding
@@ -70,15 +72,13 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
         CROSS JOIN query_embedding
         LIMIT 5;
         `;
-        const [demo] = await bigquery.query({
-            query: demoQuery,
-        });
+        const [demo] = await bigquery.query(demoQuery);
         console.log("------------2--------");
         console.log("Rishav's demo here", demo);
 
         // Initialize query parameters
         let queryParams = [
-            // { name: 'question', parameterType:'STRING', parameterValue: question }
+            { name: 'question', parameterType:'STRING', parameterValue: question }
         ];
 
         if (shipment_id) {
@@ -211,8 +211,15 @@ const answerQuestionGemini = async (genAI: ReturnType<VertexAI['getGenerativeMod
     }
 };
 
+// const cleanOutput = (text: string): string => {
+//     return text.replace(/[^\w\s.,:]/g, '');
+// };
+
 const cleanOutput = (text: string): string => {
-    return text.replace(/[^\w\s.,:]/g, '');
+    return text
+        .replace(/\s*\n\s*/g, ' ') // Replace newlines and surrounding spaces with a single space
+        .replace(/\s{2,}/g, ' ')  // Replace multiple spaces with a single space
+        .trim();                  // Trim leading and trailing spaces
 };
 
 

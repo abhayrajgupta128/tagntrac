@@ -4,7 +4,7 @@ import * as path from 'path';
 
 const bigQuerryService = async ({ app }: { app: any }) => {
   try {
-    const credentialsPath = path.resolve(__dirname, '../../ai-use-cases-431720-3a078e52f84d.json');
+    const credentialsPath = path.resolve(__dirname, `${process.env.PATH_TO_CREDENTIALS}`);
     const bigQuerryConfig = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
 
     app.bigQuerry = new BigQuery({

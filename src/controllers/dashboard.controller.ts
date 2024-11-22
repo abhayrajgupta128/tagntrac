@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { RowData, TMData } from '../typings';
 
 // Define the function to handle the request
-export const getDataFromBigQuery = async (req: Request, res: Response) => {
+export const getDashboardDataFromBigQuery = async (req: Request, res: Response) => {
   const bigquery = req.app.bigQuerry;
   try {
     // Validate and parse query parameters
