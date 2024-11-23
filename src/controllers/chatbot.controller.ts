@@ -46,45 +46,27 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
         const { time_period, days } = UtilHelper.getTimePeriodFromQuery(question);
         console.log("Time period: ", time_period, days);
 
-        // Initialize query parameters
-        // let queryParams = [
-        //     { name: 'question', parameterType: 'STRING', parameterValue: question }
-        // ];
-        // console.log("shipment_id: ", shipment_id);
-
+        // const queryParams = [question];
         // if (shipment_id) {
-        //     queryParams.push({ name: 'shipment_id', parameterType: 'STRING', parameterValue: shipment_id });
+        //     queryParams.push(shipment_id);
         // }
 
-        // // Execute query
-        // const sqlQuery = buildSqlQuery(question);
-        // const options = {
-        //     query: sqlQuery,
-        //     params: queryParams,
-        //     types: {
-        //         question: 'STRING',
-        //         shipment_id: 'STRING'
-        //     }
-        // };
-
-        // const [rows] = await bigquery.query(options);
-        // console.log("❤️😂Rows yessssssssss: ", rows);
-        const queryParams = [
-            { name: 'question', parameterType: { type: 'STRING' }, parameterValue: { value: question }}
-        ];
+        let queryParams: { question: string; shipment_id?: string | null } = {
+            question: question
+        };
 
         if (shipment_id) {
-            queryParams.push({ name: 'shipment_id', parameterType: { type: 'STRING' }, parameterValue: { value: shipment_id }
-            });
+            queryParams.shipment_id = shipment_id;
         }
+
         const sqlQuery = buildSqlQuery(question);
         const options = {
             query: sqlQuery,
-            params: queryParams
+            params: queryParams,
         };
         const [rows] = await bigquery.query(options);
-        console.log("❤️😂Rows yessssssssss: ", rows);
-        
+        console.log("❤️😂 rows: ", rows);
+
 
         // Initialize data collectors
         let dataCollector: string[] = [];
@@ -185,17 +167,12 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
 
         // Join all collected raw data
         const data = dataCollector.join('\n');
-        console.log("------------------ runSearch Data : start--------------------------");
-        console.log("Data in  runSearch ftn last: ", data);
-        console.log("------------------ runSearch Data : end----------------------------");
+        console.log("runSearch data: ", data);
 
         return data;
 
     } catch (error: any) {
-        console.log("------------------ runSearch Error : start--------------------------");
         console.log('Error in BigQuery: ', error.message);
-        console.log("------------------ runSearch Error : end----------------------------");
-
         return error.message;
     }
 }

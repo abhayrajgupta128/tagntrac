@@ -1,13 +1,12 @@
 export const getShipmentIdFromQuery = (question: string): string | null => {
     /** Extract shipment ID from the query */
     const patterns = [
-        /shipment\s+id\s*[:#]?\s*(\w+)/i,
-        /shipment\s*[:#]?\s*(\w+)/i,
-        /id\s*[:#]?\s*(\w+)/i,
-        /track\s*[:#]?\s*(\w+)/i,
+        /shipment\s+id\s*[:#]?\s*([\w=]+)/i,
+        /shipment\s*[:#]?\s*([\w=]+)/i,
+        /id\s*[:#]?\s*([\w=]+)/i,
+        /track\s*[:#]?\s*([\w=]+)/i,
     ];
 
-    question = question.toLowerCase();
     for (const pattern of patterns) {
         const match = question.match(pattern);
         if (match) {
@@ -20,9 +19,9 @@ export const getShipmentIdFromQuery = (question: string): string | null => {
 export const getTimePeriodFromQuery = (question: string): { time_period: string, days: number } => {  // Review
     /** Extract time period from the query */
     question = question.toLowerCase();
-    if (question.includes("week") || question.includes("7 day")) {
+    if (question.includes("week") || question.includes("7 days")) {
         return { time_period: "week", days: 7 };
-    } else if (question.includes("month") || question.includes("30 day")) {
+    } else if (question.includes("month") || question.includes("30 days")) {
         return { time_period: "month", days: 30 };
     } else {
         return { time_period: "month", days: 30 };  // default to month
