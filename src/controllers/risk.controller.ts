@@ -58,11 +58,11 @@ export const getRiskDataFromBigQuery = async (req: Request, res: Response) => {
         }
 
         if (tm && !isNaN(Number(tm))) {
-            tmAddendum = `AND raw_data.tm = ${tm}`;
+            tmAddendum = `AND raw_data.tm > ${tm}`;
         }
 
         if (time && !isNaN(Number(time))) {
-            timeAddendum = `AND risk.timestamp = ${time}`;
+            timeAddendum = `AND risk.timestamp > ${time}`;
         }
 
         // Define the query
