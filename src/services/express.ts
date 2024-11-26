@@ -41,6 +41,8 @@ const expressLoader = async ({ app }: { app: any }) => {
       "Access-Control-Allow-Methods",
       "GET, POST, PUT, DELETE, PATCH, OPTIONS"
     );
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Accept", "application/json");
     next();
   });
 
