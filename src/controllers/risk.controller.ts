@@ -3,24 +3,72 @@ import { Request, Response } from 'express';
 import { RowData, TMData } from '../typings';
 
 // Define the function to handle the request
-export const getDashboardDataFromBigQuery = async (req: Request, res: Response) => {
-  const bigquery = req.app.bigQuerry;
-  try {
-    // Validate and parse query parameters
-    const organizationId = req.params.tenantId as string;
-    const platformType = Math.max(1, Math.min(Number(req.query.type) || 1, 2));
+export const getRiskDataFromBigQuery = async (req: Request, res: Response) => {
+    const bigquery = req.app.bigQuerry;
+    try {
+        // Validate and parse query parameters
+        const organizationId = req.params.tenantId as string;
+        const platformType = Math.max(1, Math.min(Number(req.query.type) || 1, 2));
 
-    if (!organizationId) {
-      res.status(400).send({
-        error: 'organizationId query parameter is required',
-      });
-      return;
-    }
+        if (organizationId === '') {
+            res.status(400).send({
+                error: 'organizationId is required',
+            });
+            return;
+        }
 
-    // Define the query
-    let query: string;
-    if (platformType === 2) {
-      query = `
+        const { page, limit, risk_level, risk_type, asset_type, asset_state, project_id, tm, time } = req.query;
+
+        let pageNumber = 1;
+        if (page && !isNaN(Number(page))) {
+            pageNumber = Number(page);
+        }
+
+        let limitNumber = 15;
+        if (limit && !isNaN(Number(limit))) {
+            limitNumber = Number(limit);
+        }
+
+        let riskLevelAddendum = '';
+        let riskTypeAddendum = '';
+        let assetTypeAddendum = '';
+        let assetStateAddendum = '';
+        let projectAddendum = '';
+        let tmAddendum = '';
+        let timeAddendum = '';
+
+        if (risk_level && !isNaN(Number(risk_level))) {
+            riskLevelAddendum = `AND risk.risk_level = '${risk_level}'`;
+        }
+
+        if (risk_type) {
+            riskTypeAddendum = `AND risk.risk_type = '${risk_type}'`;
+        }
+
+        if (asset_type) {
+            assetTypeAddendum = `AND asset.tuType = '${asset_type}'`;
+        }
+
+        if (asset_state && typeof asset_state !== 'string') {
+            assetStateAddendum = `AND asset.state = '${asset_state}'`;
+        }
+
+        if (project_id && !isNaN(Number(project_id))) {
+            projectAddendum = `AND project.id = '${project_id}'`;
+        }
+
+        if (tm && !isNaN(Number(tm))) {
+            tmAddendum = `AND raw_data.tm > ${tm}`;
+        }
+
+        if (time && !isNaN(Number(time))) {
+            timeAddendum = `AND risk.timestamp > ${time}`;
+        }
+
+        // Define the query
+        let query: string;
+        if (platformType === 2) {
+            query = `
                 SELECT 
                     tenant.id as tenant_id,
                     tenant.name as tenant_name,
@@ -70,8 +118,8 @@ export const getDashboardDataFromBigQuery = async (req: Request, res: Response) 
                     device.id = risk.device_id
                 WHERE shipment.status = 2
                 AND tenant.id = @organizationId`;
-    } else {
-      query = `
+        } else {
+            query = `
                 WITH most_recent_raw_data AS (
                     SELECT *
                     FROM 
@@ -139,25 +187,27 @@ export const getDashboardDataFromBigQuery = async (req: Request, res: Response) 
                     most_recent_raw_data raw_data
                 ON 
                     raw_data.device_identifier = device.id
-                WHERE tenant.id = @organizationId`;
-    }
+                WHERE tenant.id = @organizationId
+                ${assetTypeAddendum} ${assetStateAddendum} ${projectAddendum} ${riskLevelAddendum} ${riskTypeAddendum} ${tmAddendum} ${timeAddendum}
+                LIMIT ${limitNumber} OFFSET ${(pageNumber - 1) * limitNumber}`;
+        }
 
-    const options = {
-      query,
-      params: { organizationId },
-    };
+        const options = {
+            query,
+            params: { organizationId },
+        };
+        console.log('Query:', query);
+        const [rows] = await bigquery.query(options);
 
-    const [rows] = await bigquery.query(options);
+        if (rows.length === 0) {
+            res.status(404).send({ error: 'No data found for this organizationId' });
+            return;
+        }
 
-    if (rows.length === 0) {
-      res.status(404).send({ error: 'No data found for this organizationId' });
-      return;
-    }
+        const deviceId = rows[0].device_id;
 
-    const deviceId = rows[0].device_id;
-
-    // Second query to get temperature ('tm') data
-    const tmQuery = `
+        // Second query to get temperature ('tm') data
+        const tmQuery = `
             SELECT 
                 tm,
                 TIMESTAMP_SECONDS(CAST(timestamp / 1000 AS INT64)) AS timestamp
@@ -169,26 +219,26 @@ export const getDashboardDataFromBigQuery = async (req: Request, res: Response) 
             ORDER BY timestamp ASC
         `;
 
-    const tmOptions = {
-      query: tmQuery,
-      params: { device_id: String(deviceId) },
-    };
+        const tmOptions = {
+            query: tmQuery,
+            params: { device_id: String(deviceId) },
+        };
 
-    const [tmRows] = await bigquery.query(tmOptions);
-    const result = rows.map((row: RowData) => ({
-        ...row,
-        tm_data: tmRows.map((tmRow: TMData) => ({
-            tm: tmRow.tm,
-            timestamp: tmRow.timestamp,
-        })),
-    }));
+        const [tmRows] = await bigquery.query(tmOptions);
+        const result = rows.map((row: RowData) => ({
+            ...row,
+            tm_data: tmRows.map((tmRow: TMData) => ({
+                tm: tmRow.tm,
+                timestamp: tmRow.timestamp,
+            })),
+        }));
 
-    res.status(200).json(result);
-  } catch (error: unknown) {
-    console.error('Error querying BigQuery:', error);
-    res.status(500).send({
-      error: 'An error occurred while querying BigQuery',
-      details: (error as Error).message,
-    });
-  }
+        res.status(200).json(result);
+    } catch (error: unknown) {
+        console.error('Error querying BigQuery:', error);
+        res.status(500).send({
+            error: 'An error occurred while querying BigQuery',
+            details: (error as Error).message,
+        });
+    }
 };

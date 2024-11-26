@@ -1,4 +1,3 @@
 export { default as BaseController } from './base.controller';
-export * as DashboardController from './dashboard.controller';
-export * as ChatBotController from './chatbot.controller';
-
+export * as RiskController from './risk.controller';
+export * as AssistantController from './assistant.controller';
