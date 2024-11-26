@@ -4,8 +4,8 @@ import generativeAILoader from "./generativeAi";
 
 
 const service = async ({ app }: { app: any }) => {
-    await bigQueryLoader({ app });
     await expressLoader({ app });
+    await bigQueryLoader({ app });
     await generativeAILoader({ app });
 };
 
