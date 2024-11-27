@@ -25,7 +25,7 @@ const expressLoader = async ({ app }: { app: any }) => {
   app.use(cors({ origin: "*" }));
   app.options("*", cors({ origin: "*" }));
   app.disable("x-powered-by");
-  app.use(morgan(morganFormat));
+  // app.use(morgan(morganFormat));
   app.use(methodOverride("X-HTTP-Method-Override"));
   app.use(helmet());
 

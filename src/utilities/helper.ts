@@ -1,10 +1,10 @@
 export const getShipmentIdFromQuery = (question: string): string | null => {
     /** Extract shipment ID from the query */
     const patterns = [
-        /shipment\s+id\s*[:#]?\s*([\w=]+)/i,
-        /shipment\s*[:#]?\s*([\w=]+)/i,
-        /id\s*[:#]?\s*([\w=]+)/i,
-        /track\s*[:#]?\s*([\w=]+)/i,
+        /shipment[\s_\-]?id[\s:\-#]?\s*([\w\-+=]+)/i,   // Matches "Shipment ID", "ShipmentID", "Shipment_id", "Shipment-ID", etc.
+        /shipment[\s:\-#]?\s*([\w\-+=]+)/i,            // Matches "Shipment" followed by an ID
+        /id[\s:\-#]?\s*([\w\-+=]+)/i,                  // Matches "ID" followed by an ID
+        /track[\s:\-#]?\s*([\w\-+=]+)/i                // Matches "Track" followed by an ID
     ];
 
     for (const pattern of patterns) {

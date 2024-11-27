@@ -13,22 +13,31 @@ export const answerQuestion = async (req: Request, res: Response) => {
     let { question } = req.body;
 
     try {
-        const bigquery = req.app.bigQuerry;
-        const genAI = req.app.generativeModel;
-        const data = await runSearch(bigquery, question);
+        if(!question) {
+            res.status(400).json({ error: `No question asked` });
+            console.log("No question in request");   
+            return;
+        }
 
+        const bigquery = req.app.bigQuerry;         //client for bigquery
+        const genAI = req.app.generativeModel;      //client for generative model
+
+        const data = await runSearch(bigquery, question);
+        
         if (!data) {
             res.status(202).json({ answer: "I'm sorry, I couldn't find any relevant information for your query." });
             return;
         }
         const prompt = buildPrompt(data, question);
-
+        
         const answer = await answerQuestionGemini(genAI, prompt);
-
-        res.status(200).json({ answer: JSON.parse(answer) });
+        
+        // res.status(200).json({ answer: JSON.parse(answer) });
+        res.status(200).json({answer});
 
     } catch (error: any) {
-        res.status(404).json({ answer: `Error processing question: ${error?.message}` });
+        console.log("Error processing question: ", error);
+        res.status(404).json({ error: `Error processing question: ${error}` });
     }
 };
 
@@ -46,16 +55,12 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
         const { time_period, days } = UtilHelper.getTimePeriodFromQuery(question);
         console.log("Time period: ", time_period, days);
 
-        // const queryParams = [question];
-        // if (shipment_id) {
-        //     queryParams.push(shipment_id);
-        // }
-
         let queryParams: { question: string; shipment_id?: string | null } = {
             question: question
         };
 
         if (shipment_id) {
+            console.log("shipment_id: ", shipment_id);
             queryParams.shipment_id = shipment_id;
         }
 
@@ -64,9 +69,10 @@ const runSearch = async (bigquery: BigQuery, question: string) => {
             query: sqlQuery,
             params: queryParams,
         };
+        // console.log(" sqlQuery: ", sqlQuery);
+        
         const [rows] = await bigquery.query(options);
-        console.log("❤️😂 rows: ", rows);
-
+        // console.log("rows: ", rows);
 
         // Initialize data collectors
         let dataCollector: string[] = [];

@@ -6,7 +6,6 @@ import { RowData, TMData } from '../typings';
 export const getRiskDataFromBigQuery = async (req: Request, res: Response) => {
     const bigquery = req.app.bigQuerry;
     try {
-        // Validate and parse query parameters
         const organizationId = req.params.tenantId as string;
         const platformType = Math.max(1, Math.min(Number(req.query.type) || 1, 2));
 
@@ -180,7 +179,7 @@ export const getRiskDataFromBigQuery = async (req: Request, res: Response) => {
                 ON 
                     deviceinfo.projectId = project.id
                 JOIN 
-                    \`ai-use-cases-431720.risk_predictions.tnt_final_temp_predictions\` risk
+                    \`ai-use-cases-431720.tnt_rp1_risk_prediction.temp_excur_model_predictions\` risk
                 ON 
                     risk.device_id = device.id
                 LEFT JOIN
